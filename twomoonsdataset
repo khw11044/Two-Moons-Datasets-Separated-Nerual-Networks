@@ -1,0 +1,115 @@
+try:
+  # Colab only
+  %tensorflow_version 2.x
+except Exception:
+  pass
+
+================================================================================================================
+from __future__ import absolute_import, division, print_function, unicode_literals, unicode_literals
+
+# tensorflow와 tf.keras를 임포트합니다
+import tensorflow as tf
+from tensorflow import keras
+
+# 헬퍼(helper) 라이브러리를 임포트합니다
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn import cluster, datasets
+print(tf.__version__)
+np.random.seed(0) #랜덤데이터를 고정하기위한 함수 seed()
+
+
+============================================================================================================
+N_train = 2000
+N_test = 500
+n_samples = N_train+N_test
+#(all_data, all_labels) = datasets.make_circles(n_samples=n_samples, factor=.1, noise=.15) #factor 간격
+(all_data, all_labels) = datasets.make_moons(n_samples=n_samples, noise=.1)
+
+data_train = all_data[ :N_train] # N_train data for training
+data_test = all_data[ N_train:] # N_test data for test
+label_train = all_labels[ :N_train] # N_train labels for training
+label_test = all_labels[ N_train:] # N_test labels for test
+
+plt.figure(figsize=(12,8))
+#mask=label_train>0     mask에 해당하는 애는 
+#plt.scatter(data_train[~mask,0],data_train[~mask,1], color='b', label = 'class 0')
+#plt.scatter(data_train[mask,0],data_train[mask,1], color='r', label = 'class 1')  x좌표 y좌표 not값(Faulse값은 파랑))
+colors = ['blue' if label == 1 else 'red' for label in label_train]  #1이면 파랑 0이면 빨강 
+plt.scatter(data_train[:,0],data_train[:,1], color=colors)
+plt.axis('equal')
+plt.show()
+
+
+
+============================================================================================================
+model = keras.Sequential([  #직렬로
+    keras.layers.Dense(10, input_shape=(2,), activation='relu'), #출력은 4개
+    keras.layers.Dense(10, activation='relu'),     #출력은 4개
+    keras.layers.Dense(1, activation='sigmoid')   #마지막 출력은 1개      레이어는 3개  hidden layer는 2개 0아니면 1이니깐 sigmoid사용 
+])
+
+model.compile('adam', 'binary_crossentropy', metrics=['accuracy']) #adam 탐색방법 gradient decent같은거 
+
+#출력 dense가 10개 10개 출력은 1개 
+#w = 2x10=20
+#B = 1x10 =10
+#w+b = 30
+#10x10 = 100
+#1x10 = 10   ==> 100+10= 110
+# 10x1 + 1x1 = 11
+
+============================================================================================================
+model.summary()
+
+============================================================================================================
+
+results = model.fit(data_train, label_train, verbose=0, epochs=200)      #계속 에러 찾고 데이터 업데이트-> fit   vervose 로그를 찍는것 
+#plot_loss_accuracy(history)                                              #epochs 100번 반복
+test_loss, test_acc = model.evaluate(data_test, label_test, verbose=2)
+print('\n테스트 정확도:', test_acc)
+
+============================================================================================================
+
+
+predictions = model.predict(data_test)
+
+plt.figure(figsize=(12,8))
+mask=predictions>0.5
+mask=mask.reshape(N_test)
+plt.scatter(data_test[~mask,0],data_test[~mask,1], color='r', label = 'class 0')  #0.5 보다 작은애는 빨강 
+plt.scatter(data_test[mask,0],data_test[mask,1], color='b', label = 'class 1')    #0.5보다 크면 파랑 
+plt.axis('equal')
+plt.show()
+
+============================================================================================================
+
+
+def plot_decision_boundary(X, y, model, steps=1000, cmap='Paired'):
+    cmap = plt.get_cmap(cmap)
+
+    # Define region of interest by data limits
+    xmin, xmax = X[:,0].min() - 1, X[:,0].max() + 1
+    ymin, ymax = X[:,1].min() - 1, X[:,1].max() + 1
+    steps = 100
+    x_span = np.linspace(xmin, xmax, steps)
+    y_span = np.linspace(ymin, ymax, steps)
+    xx, yy = np.meshgrid(x_span, y_span)   #x, y 전 범위를 step 간격의 그리드로 나눔
+
+    # Make predictions across region of interest
+    labels = model.predict(np.c_[xx.ravel(), yy.ravel()]) #각 그리드에서 네트워크 출력을 계산 predict 활용
+
+    # Plot decision boundary in region of interest
+    z = labels.reshape(xx.shape)
+
+    fig, ax = plt.subplots(figsize=(12,8))
+    ax.contourf(xx, yy, z, cmap=cmap, alpha=0.5)  #네트워크 출력이 같은 곳끼리 등고선 그리기
+
+    # Get predicted labels on training data and plot
+    train_labels = model.predict(X)
+    ax.scatter(X[:,0], X[:,1], c=y, cmap=cmap, lw=0)  #학습 데이터 같이 프린트하여 비교
+
+    return fig, ax
+    
+============================================================================================================
+plot_decision_boundary(data_train, label_train, model, cmap='RdBu')
